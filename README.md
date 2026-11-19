@@ -27,6 +27,14 @@ Au premier lancement, Sarra explique puis **demande les accès** un à un (une f
 | Notifications + écran verrouillé | réveils et rappels qui ouvrent Sarra à l'heure demandée |
 | (sans autorisation) | préparer un SMS (Nathalie appuie sur Envoyer), régler un minuteur, ouvrir la navigation, tenir une liste de tâches |
 
+## Alarme dans l'application Horloge
+
+Pour « réveille-moi à 6 h 30 », Sarra règle l'alarme directement dans l'application **Horloge** du téléphone (Samsung, Google, etc.). C'est cette alarme qui sonne à l'heure dite, même téléphone verrouillé, même si Sarra est fermée. Elle peut aussi la répéter certains jours (« tous les jours de semaine »). Android ne confirme pas la création d'une alarme : Sarra propose d'ouvrir la liste des alarmes de l'Horloge pour vérifier, modifier ou supprimer.
+
+## Photo de Sarra
+
+Par défaut, Sarra est un portrait dessiné et animé. Pour utiliser une photo, ajouter un fichier `sarra.jpg` (carré, visage centré) dans `sarra_app/assets/` : l'application le détecte, l'affiche en cercle avec une légère respiration, et un contour qui s'anime quand Sarra écoute (bleu) ou parle (vert). N'utiliser qu'une image dont on a les droits.
+
 ## Réveils et rappels, même téléphone verrouillé
 
 Nathalie peut dire par exemple « réveille-moi demain à 6 h 30 » ou « rappelle-moi d'appeler Marie à 14 h ». Sarra programme une alarme exacte sur le téléphone. À l'heure dite, même si l'application est fermée et l'écran verrouillé :

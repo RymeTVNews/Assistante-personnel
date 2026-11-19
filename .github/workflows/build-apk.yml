@@ -34,6 +34,7 @@ jobs:
           rm -rf "$GEN/lib" "$GEN/test"
           cp -r sarra_app/lib "$GEN/lib"
           cp sarra_app/pubspec.yaml "$GEN/pubspec.yaml"
+          cp -r sarra_app/assets "$GEN/assets"
           cp sarra_app/android_overrides/AndroidManifest.xml "$GEN/android/app/src/main/AndroidManifest.xml"
           mkdir -p "$GEN/android/app/src/main/kotlin/com/sarra/sarra_assistante"
           cp sarra_app/android_overrides/*.kt "$GEN/android/app/src/main/kotlin/com/sarra/sarra_assistante/"

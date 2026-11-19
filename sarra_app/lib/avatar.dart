@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'controller.dart';
 
@@ -16,6 +17,27 @@ class SarraAvatar extends StatefulWidget {
 class _SarraAvatarState extends State<SarraAvatar> with SingleTickerProviderStateMixin {
   late final AnimationController _c =
       AnimationController(vsync: this, duration: const Duration(seconds: 600))..repeat();
+  String? _photo;
+
+  @override
+  void initState() {
+    super.initState();
+    _findPhoto();
+  }
+
+  /// Si une photo `assets/sarra.jpg` (ou .jpeg, .png, .webp) est dans l'application, elle remplace le portrait dessiné.
+  Future<void> _findPhoto() async {
+    try {
+      final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+      final assets = manifest.listAssets();
+      for (final p in ['assets/sarra.jpg', 'assets/sarra.jpeg', 'assets/sarra.png', 'assets/sarra.webp']) {
+        if (assets.contains(p)) {
+          if (mounted) setState(() => _photo = p);
+          return;
+        }
+      }
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
@@ -29,10 +51,54 @@ class _SarraAvatarState extends State<SarraAvatar> with SingleTickerProviderStat
       aspectRatio: 1,
       child: AnimatedBuilder(
         animation: _c,
-        builder: (_, __) => CustomPaint(painter: _Painter(t: _c.value * 600, mode: widget.mode)),
+        builder: (_, __) {
+          final t = _c.value * 600;
+          if (_photo == null) return CustomPaint(painter: _Painter(t: t, mode: widget.mode));
+          // Photo : légère respiration, et le contour s'anime quand Sarra écoute ou parle.
+          final speaking = widget.mode == SarraMode.speaking;
+          final scale = 1 + 0.012 * sin(t * 1.5) + (speaking ? 0.012 * sin(t * 9).abs() : 0);
+          return CustomPaint(
+            painter: _RingPainter(t: t, mode: widget.mode),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Transform.scale(
+                scale: scale,
+                child: ClipOval(child: Image.asset(_photo!, fit: BoxFit.cover, alignment: Alignment.topCenter)),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
+}
+
+/// Contour animé autour de la photo.
+class _RingPainter extends CustomPainter {
+  _RingPainter({required this.t, required this.mode});
+  final double t;
+  final SarraMode mode;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero);
+    final r = size.width / 2 - 14;
+    Paint ring(Color col, double w) => Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w
+      ..color = col;
+    if (mode == SarraMode.listening) {
+      final ph = (t % 1.6) / 1.6;
+      canvas.drawCircle(c, r + 14 * ph, ring(const Color(0xFF7CC4FF).withOpacity((1 - ph) * 0.85), 3));
+    } else if (mode == SarraMode.speaking) {
+      canvas.drawCircle(c, r + 5, ring(const Color(0xFF5BD68A).withOpacity(0.35 + 0.35 * sin(t * 6).abs()), 4));
+    } else {
+      canvas.drawCircle(c, r + 3, ring(Colors.white.withOpacity(0.15), 2));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RingPainter old) => true;
 }
 
 class _Painter extends CustomPainter {

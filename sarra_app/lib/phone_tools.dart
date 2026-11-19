@@ -56,6 +56,19 @@ class PhoneTools {
         {'numero': _s, 'nom': _s, 'message': _s},
         ['message']),
     _def(
+        'alarme_horloge',
+        "Règle une alarme dans l'application Horloge du téléphone (heure 0-23, minute 0-59). "
+        "Elle sonne à l'heure dite même téléphone verrouillé et même si Sarra est fermée. "
+        "jours (facultatif) : liste de jours pour la répéter, ex. [\"lundi\",\"mardi\"].",
+        {
+          'heure': _n,
+          'minute': _n,
+          'libelle': _s,
+          'jours': {'type': 'array', 'items': _s}
+        },
+        ['heure', 'minute']),
+    _def('alarmes_afficher', "Ouvre l'application Horloge sur la liste des alarmes, pour vérifier, modifier ou supprimer une alarme.", {}),
+    _def(
         'programmer',
         "Programme un réveil ou un rappel à une date et heure précises (quand, au format ISO 8601 local). "
         "À l'heure dite, même téléphone verrouillé, Sarra allume l'écran, s'ouvre et parle à Nathalie. "
@@ -107,6 +120,11 @@ class PhoneTools {
         return _appeler(a);
       case 'sms_preparer':
         return _smsPreparer(a);
+      case 'alarme_horloge':
+        return _alarmeHorloge(a);
+      case 'alarmes_afficher':
+        await const AndroidIntent(action: 'android.intent.action.SHOW_ALARMS').launch();
+        return {'ok': true};
       case 'programmer':
         return _programmer(a);
       case 'ecoute_continue':
@@ -283,6 +301,30 @@ class PhoneTools {
   }
 
   // ---------- alarmes et minuteurs ----------
+
+  /// Alarme de l'application Horloge du téléphone : elle sonne même verrouillé, sans dépendre de Sarra.
+  Future<dynamic> _alarmeHorloge(Map<String, dynamic> a) async {
+    final h = (a['heure'] as num).toInt(), m = (a['minute'] as num).toInt();
+    if (h < 0 || h > 23 || m < 0 || m > 59) throw Exception('Heure invalide');
+    const jours = {'dimanche': 1, 'lundi': 2, 'mardi': 3, 'mercredi': 4, 'jeudi': 5, 'vendredi': 6, 'samedi': 7};
+    final days = <int>[
+      for (final j in (a['jours'] as List? ?? const []))
+        if (jours[_norm('$j')] != null) jours[_norm('$j')]!
+    ];
+    await AndroidIntent(action: 'android.intent.action.SET_ALARM', arguments: {
+      'android.intent.extra.alarm.HOUR': h,
+      'android.intent.extra.alarm.MINUTES': m,
+      'android.intent.extra.alarm.MESSAGE': '${a['libelle'] ?? 'Sarra'}',
+      'android.intent.extra.alarm.SKIP_UI': true,
+      'android.intent.extra.alarm.VIBRATE': true,
+      if (days.isNotEmpty) 'android.intent.extra.alarm.DAYS': days,
+    }).launch();
+    return {
+      'ok': true,
+      'heure': '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}',
+      'note': "Demande envoyée à l'application Horloge. Android ne confirme pas la création : on peut vérifier avec alarmes_afficher.",
+    };
+  }
 
   /// Écoute du mot d'éveil « Dis Sarra » : service Android au premier plan (notification visible).
   Future<dynamic> _ecoute(bool actif) async {
