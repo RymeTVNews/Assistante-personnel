@@ -379,6 +379,10 @@ class SarraController extends ChangeNotifier {
       answer = await _brain.ask(text, cancelled: () => my != _token);
     } on BrainError catch (e) {
       answer = e.spoken;
+      if (e.detail != null) {
+        note = e.detail!;
+        notifyListeners();
+      }
       if (e.needsKey) Future.microtask(() => onNeedKey?.call());
     } on SocketException {
       answer = "Je n'ai pas de connexion internet pour le moment.";

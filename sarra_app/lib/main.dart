@@ -203,9 +203,11 @@ class _HomePageState extends State<HomePage> {
     final width = min(300.0, MediaQuery.of(context).size.width * 0.78);
     return Column(
       children: [
-        SizedBox(
-          height: 22,
-          child: Text(c.note, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFFFFD58A), fontSize: 13)),
+        ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 22, maxHeight: 72),
+          child: SingleChildScrollView(
+            child: Text(c.note, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFFFFD58A), fontSize: 13)),
+          ),
         ),
         const SizedBox(height: 6),
         SizedBox(

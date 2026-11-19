@@ -18,7 +18,11 @@ class PhoneTools {
     return {
       'name': name,
       'description': description,
-      'input_schema': {'type': 'object', 'properties': props, 'required': required},
+      'input_schema': {
+        'type': 'object',
+        'properties': props,
+        if (required.isNotEmpty) 'required': required,
+      },
     };
   }
 

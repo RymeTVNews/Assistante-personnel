@@ -5,9 +5,12 @@ import 'package:http/http.dart' as http;
 import 'phone_tools.dart';
 
 class BrainError implements Exception {
-  BrainError(this.spoken, {this.needsKey = false});
+  BrainError(this.spoken, {this.needsKey = false, this.detail});
   final String spoken;
   final bool needsKey;
+
+  /// Message technique du service, affiché en bas de l'écran (jamais lu à voix haute).
+  final String? detail;
 }
 
 /// Le « cerveau » de Sarra : l'API Claude d'Anthropic, avec les actions du téléphone comme outils.
@@ -89,18 +92,35 @@ Maintenant : $date (ISO ${n.toIso8601String()}, fuseau ${n.timeZoneName}).''';
         throw BrainError('Je suis un peu débordée, réessayez dans un instant.');
       }
       if (res.statusCode != 200) {
-        throw BrainError("Désolée Nathalie, je n'arrive pas à joindre mon cerveau (erreur ${res.statusCode}).");
+        var msg = '';
+        try {
+          msg = '${(jsonDecode(utf8.decode(res.bodyBytes)) as Map)['error']['message']}';
+        } catch (_) {}
+        // Une conversation abîmée ferait échouer toutes les demandes suivantes : on repart de zéro.
+        _msgs.clear();
+        throw BrainError(
+          "Désolée Nathalie, le service a refusé ma demande (erreur ${res.statusCode}). Le détail est affiché en bas de l'écran.",
+          detail: 'Erreur ${res.statusCode} : ${msg.isEmpty ? 'sans détail' : msg}',
+        );
       }
 
       final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
-      final content = (data['content'] as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      // Le service refuse les blocs de texte vides quand on les lui renvoie : on les écarte.
+      final content = (data['content'] as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .where((b) => !(b['type'] == 'text' && ('${b['text'] ?? ''}').trim().isEmpty))
+          .toList();
+      if (content.isEmpty) return '';
       _msgs.add({'role': 'assistant', 'content': content});
 
       if (data['stop_reason'] == 'tool_use') {
         final results = <Map<String, dynamic>>[];
         for (final b in content) {
           if (b['type'] != 'tool_use') continue;
-          if (cancelled()) return '';
+          if (cancelled()) {
+            _msgs.removeLast(); // évite un appel d'outil sans résultat, qui ferait échouer la suite
+            return '';
+          }
           String out;
           var isError = false;
           try {
