@@ -180,7 +180,9 @@ class WakeWordService : Service() {
             override fun onEndOfSpeech() {}
             override fun onEvent(eventType: Int, params: Bundle?) {}
 
-            override fun onPartialResults(partialResults: Bundle?) = check(partialResults)
+            override fun onPartialResults(partialResults: Bundle?) {
+                check(partialResults)
+            }
 
             override fun onResults(results: Bundle?) {
                 if (!check(results) && !paused) again(300)
