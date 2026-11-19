@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:android_intent_plus/android_intent.dart';
+
+import 'alarm_bridge.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -49,8 +51,28 @@ class PhoneTools {
         "Ouvre l'application de messages avec le texte déjà écrit. Nathalie doit appuyer elle-même sur Envoyer. Donne soit numero, soit nom (contact).",
         {'numero': _s, 'nom': _s, 'message': _s},
         ['message']),
-    _def('alarme', "Règle une alarme du téléphone à une heure précise (heure 0-23, minute 0-59).",
-        {'heure': _n, 'minute': _n, 'libelle': _s}, ['heure', 'minute']),
+    _def(
+        'programmer',
+        "Programme un réveil ou un rappel à une date et heure précises (quand, au format ISO 8601 local). "
+        "À l'heure dite, même téléphone verrouillé, Sarra allume l'écran, s'ouvre et parle à Nathalie. "
+        "type : reveil (sonnerie insistante, Sarra répète jusqu'à ce que Nathalie réponde) ou rappel. "
+        "message : ce que Sarra dira. action (facultatif) : une action à exécuter à ce moment-là, "
+        'par exemple {"outil":"appeler","arguments":{"nom":"Marie"}}.',
+        {
+          'quand': _s,
+          'message': _s,
+          'type': _s,
+          'action': {
+            'type': 'object',
+            'properties': {
+              'outil': _s,
+              'arguments': {'type': 'object'}
+            }
+          },
+        },
+        ['quand', 'message']),
+    _def('programme_lister', 'Liste les réveils et rappels programmés.', {}),
+    _def('programme_annuler', 'Annule un réveil ou un rappel programmé, par son identifiant.', {'id': _n}, ['id']),
     _def('minuteur', "Lance un minuteur du téléphone (durée en secondes).", {'secondes': _n, 'libelle': _s}, ['secondes']),
     _def('navigation', "Ouvre l'application de cartes sur une destination.", {'destination': _s}, ['destination']),
     _def('taches_lire', "Liste les tâches non terminées de Nathalie.", {}),
@@ -75,8 +97,20 @@ class PhoneTools {
         return _appeler(a);
       case 'sms_preparer':
         return _smsPreparer(a);
-      case 'alarme':
-        return _alarme(a);
+      case 'programmer':
+        return _programmer(a);
+      case 'programme_lister':
+        return (await AlarmBridge.list())
+            .map((e) => {
+                  'id': e['id'],
+                  'quand': DateTime.fromMillisecondsSinceEpoch(e['time'] as int).toIso8601String(),
+                  'message': e['label'],
+                  'type': e['kind'],
+                })
+            .toList();
+      case 'programme_annuler':
+        await AlarmBridge.cancel((a['id'] as num).toInt());
+        return {'ok': true};
       case 'minuteur':
         return _minuteur(a);
       case 'navigation':
@@ -123,6 +157,15 @@ class PhoneTools {
         break;
       case 'telephone':
         await need(Permission.phone, 'au téléphone');
+        break;
+      case 'notifications':
+        await need(Permission.notification, 'aux notifications');
+        break;
+      case 'ecran_verrouille':
+        if (!await AlarmBridge.fullScreenOk()) {
+          await AlarmBridge.openFullScreenSettings();
+          throw Exception("J'ai ouvert la page des réglages : Nathalie doit activer l'ouverture sur écran verrouillé pour Sarra.");
+        }
         break;
       default:
         throw Exception('Type inconnu : $type');
@@ -229,16 +272,29 @@ class PhoneTools {
 
   // ---------- alarmes et minuteurs ----------
 
-  Future<dynamic> _alarme(Map<String, dynamic> a) async {
-    final h = (a['heure'] as num).toInt(), m = (a['minute'] as num).toInt();
-    if (h < 0 || h > 23 || m < 0 || m > 59) throw Exception('Heure invalide');
-    await AndroidIntent(action: 'android.intent.action.SET_ALARM', arguments: {
-      'android.intent.extra.alarm.HOUR': h,
-      'android.intent.extra.alarm.MINUTES': m,
-      'android.intent.extra.alarm.MESSAGE': '${a['libelle'] ?? 'Sarra'}',
-      'android.intent.extra.alarm.SKIP_UI': true,
-    }).launch();
-    return {'ok': true, 'alarme': '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}'};
+  /// Réveil ou rappel : à l'heure dite, Sarra s'ouvre même téléphone verrouillé.
+  Future<dynamic> _programmer(Map<String, dynamic> a) async {
+    final when = _dt(a['quand']);
+    if (when == null || !when.isAfter(DateTime.now())) throw Exception('Heure invalide ou déjà passée');
+    await need(Permission.notification, 'aux notifications');
+    String? payload;
+    final act = a['action'];
+    if (act is Map) {
+      final outil = '${act['outil']}';
+      if (outil == 'programmer' || outil == 'demander_acces') throw Exception('Action non permise : $outil');
+      payload = jsonEncode({'outil': outil, 'arguments': act['arguments'] ?? {}});
+    }
+    final kind = a['type'] == 'rappel' ? 'rappel' : 'reveil';
+    final id = await AlarmBridge.schedule(when, '${a['message'] ?? ''}', kind, payload);
+    final fsOk = await AlarmBridge.fullScreenOk();
+    return {
+      'ok': true,
+      'id': id,
+      'declenchement': when.toIso8601String(),
+      if (!fsOk)
+        'avertissement':
+            "L'ouverture automatique sur écran verrouillé n'est pas encore autorisée : appelle demander_acces avec le type ecran_verrouille.",
+    };
   }
 
   Future<dynamic> _minuteur(Map<String, dynamic> a) async {

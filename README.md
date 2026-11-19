@@ -24,7 +24,21 @@ Au premier lancement, Sarra explique puis **demande les accès** un à un (une f
 | Calendrier | lire l'agenda du téléphone, ajouter des événements avec rappel |
 | Contacts | retrouver un numéro par le nom |
 | Téléphone | passer un appel |
-| (sans autorisation) | préparer un SMS (Nathalie appuie sur Envoyer), régler une alarme ou un minuteur, ouvrir la navigation, tenir une liste de tâches |
+| Notifications + écran verrouillé | réveils et rappels qui ouvrent Sarra à l'heure demandée |
+| (sans autorisation) | préparer un SMS (Nathalie appuie sur Envoyer), régler un minuteur, ouvrir la navigation, tenir une liste de tâches |
+
+## Réveils et rappels, même téléphone verrouillé
+
+Nathalie peut dire par exemple « réveille-moi demain à 6 h 30 » ou « rappelle-moi d'appeler Marie à 14 h ». Sarra programme une alarme exacte sur le téléphone. À l'heure dite, même si l'application est fermée et l'écran verrouillé :
+
+1. le téléphone sonne (son d'alarme) et l'écran s'allume ;
+2. Sarra s'ouvre par-dessus l'écran verrouillé et parle à Nathalie ;
+3. pour un réveil, Sarra répète toutes les 40 secondes jusqu'à ce que Nathalie appuie sur **PARLER** (elle peut alors dire « patiente 10 minutes ») ;
+4. une action prévue (appeler quelqu'un, ouvrir la navigation…) est exécutée à ce moment-là.
+
+Les réveils programmés sont conservés et réarmés après un redémarrage du téléphone. Accès demandés par Sarra pour cela : notifications et ouverture sur écran verrouillé (Android 14 et plus : une page de réglages s'ouvre pour l'activer).
+
+Limite : Sarra n'écoute pas en permanence en arrière-plan (pas de mot d'éveil « Dis Sarra ») ; elle s'ouvre quand une alarme ou un rappel programmé arrive, ou quand Nathalie ouvre l'application.
 
 ## Clé d'accès de l'intelligence
 

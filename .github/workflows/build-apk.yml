@@ -36,7 +36,7 @@ jobs:
           cp sarra_app/pubspec.yaml "$GEN/pubspec.yaml"
           cp sarra_app/android_overrides/AndroidManifest.xml "$GEN/android/app/src/main/AndroidManifest.xml"
           mkdir -p "$GEN/android/app/src/main/kotlin/com/sarra/sarra_assistante"
-          cp sarra_app/android_overrides/MainActivity.kt "$GEN/android/app/src/main/kotlin/com/sarra/sarra_assistante/MainActivity.kt"
+          cp sarra_app/android_overrides/*.kt "$GEN/android/app/src/main/kotlin/com/sarra/sarra_assistante/"
           echo "GEN=$GEN" >> "$GITHUB_ENV"
 
       - name: Compiler l'APK

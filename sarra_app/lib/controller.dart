@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -9,6 +10,7 @@ import 'package:speech_to_text/speech_recognition_error.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
+import 'alarm_bridge.dart';
 import 'brain.dart';
 import 'phone_tools.dart';
 
@@ -32,6 +34,8 @@ class SarraController extends ChangeNotifier {
   String _accum = '';
   String _live = '';
   int _token = 0;
+  bool _waking = false;
+  int _wakeGen = 0;
 
   // ---------- démarrage ----------
 
@@ -39,13 +43,23 @@ class SarraController extends ChangeNotifier {
     _prefs = await SharedPreferences.getInstance();
     _brain.apiKey = _prefs!.getString('apiKey');
     await _initTts();
-    final firstRun = !(_prefs!.getBool('onboarded') ?? false);
+
+    // Sarra a été ouverte par un réveil ou un rappel (même écran verrouillé) : elle parle tout de suite.
+    AlarmBridge.init();
+    AlarmBridge.onWake = (w) => _handleWake(w);
+    final wake = await AlarmBridge.takeWake();
+    if (wake != null) {
+      await _handleWake(wake);
+      return;
+    }
+
+    final firstRun = !(_prefs!.getBool('onboarded2') ?? false);
     final hour = DateTime.now().hour;
     await _say('${hour >= 18 ? 'Bonsoir' : 'Bonjour'} Nathalie, je suis Sarra. '
         "Comment puis-je vous aider dans l'organisation de votre journée ?");
     if (firstRun) {
       await _onboarding();
-      await _prefs!.setBool('onboarded', true);
+      await _prefs!.setBool('onboarded2', true);
     }
     if ((_brain.apiKey ?? '').isEmpty) onNeedKey?.call();
   }
@@ -76,7 +90,64 @@ class SarraController extends ChangeNotifier {
         await s.$2.request();
       } catch (_) {}
     }
+    await _say("Les notifications, pour pouvoir vous réveiller à l'heure demandée.");
+    try {
+      await Permission.notification.request();
+    } catch (_) {}
+    try {
+      if (!await AlarmBridge.fullScreenOk()) {
+        await _say("Et l'ouverture sur écran verrouillé : je vous ouvre la page, activez l'option pour Sarra.");
+        await AlarmBridge.openFullScreenSettings();
+      }
+    } catch (_) {}
     await _say('Merci. Appuyez sur PARLER et dites-moi ce dont vous avez besoin.');
+  }
+
+  // ---------- réveils et rappels ----------
+
+  /// À l'heure programmée : Sarra parle, exécute l'action prévue, et répète le réveil jusqu'à ce que Nathalie réponde.
+  Future<void> _handleWake(Map<String, dynamic> w) async {
+    final gen = ++_wakeGen;
+    _waking = true;
+    final kind = '${w['kind']}';
+    final label = '${w['label'] ?? ''}'.trim();
+    final payload = '${w['payload'] ?? ''}';
+    final n = DateTime.now();
+    final heure = '${n.hour} h ${n.minute.toString().padLeft(2, '0')}';
+    note = kind == 'reveil' ? 'Réveil : appuyez sur PARLER pour m’arrêter.' : '';
+    notifyListeners();
+
+    final text = kind == 'reveil'
+        ? "Bonjour Nathalie, il est $heure. C'est l'heure de vous réveiller."
+            '${label.isNotEmpty ? ' $label.' : ''} Appuyez sur PARLER pour m’arrêter ou me demander de patienter.'
+        : 'Nathalie, un rappel : ${label.isEmpty ? 'c’est l’heure' : label}.';
+
+    await _say(text);
+
+    if (payload.isNotEmpty) {
+      try {
+        final p = jsonDecode(payload) as Map;
+        await _tools.run('${p['outil']}', Map<String, dynamic>.from((p['arguments'] ?? {}) as Map));
+      } catch (e) {
+        note = "L'action prévue n'a pas pu être exécutée.";
+        notifyListeners();
+      }
+    }
+
+    if (kind == 'reveil') {
+      for (var i = 0; i < 10 && _waking && gen == _wakeGen; i++) {
+        for (var s = 0; s < 40 && _waking && gen == _wakeGen; s++) {
+          await Future.delayed(const Duration(seconds: 1));
+        }
+        if (_waking && gen == _wakeGen) await _say(text);
+      }
+    }
+    if (gen == _wakeGen) {
+      _waking = false;
+      try {
+        await AlarmBridge.stopSound();
+      } catch (_) {}
+    }
   }
 
   // ---------- clé d'accès ----------
@@ -113,6 +184,12 @@ class SarraController extends ChangeNotifier {
   // ---------- bouton PARLER / FIN ----------
 
   Future<void> onTalk() async {
+    if (_waking) {
+      _waking = false;
+      try {
+        await AlarmBridge.stopSound();
+      } catch (_) {}
+    }
     if (mode == SarraMode.listening) return _finish();
     _token++;
     try {
