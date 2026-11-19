@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sarra — assistante de Nathalie</title>
+<style>
+:root{--bg1:#16233f;--bg2:#0d1630;--ink:#f4f6fb;--muted:#a9b4cf;--green:#138a43;--red:#c9231a;--ring:#7cc4ff}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);
+  background:radial-gradient(120% 80% at 50% 28%,#26407a 0%,var(--bg1) 46%,var(--bg2) 100%)}
+.app{height:100dvh;display:grid;grid-template-rows:auto 1fr auto;max-width:560px;margin:0 auto;padding:14px 16px 20px;gap:8px}
+.top{min-height:108px;padding:12px 14px;border-radius:16px;background:rgba(255,255,255,.08);display:flex;flex-direction:column;gap:4px}
+.top small{color:var(--muted);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase}
+#said{font-size:1.3rem;line-height:1.35;overflow:auto;max-height:26vh;word-break:break-word}
+#said.empty{color:var(--muted);font-style:italic;font-size:1.05rem}
+.alert{margin-top:6px;padding:8px 10px;border-radius:10px;background:#f2c94c;color:#2a2200;font-size:.95rem;cursor:pointer}
+.stage{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:0;text-align:center}
+.avatar{position:relative;width:min(56vw,250px);aspect-ratio:1}
+.ring{position:absolute;inset:-4%;border-radius:50%;border:3px solid var(--ring);opacity:0}
+.portrait{position:absolute;inset:0;border-radius:50%;overflow:hidden;background:radial-gradient(circle at 50% 35%,#3a5a96,#22386a);box-shadow:0 10px 40px rgba(0,0,0,.35)}
+.portrait svg{width:100%;height:100%;display:block;animation:breathe 4.2s ease-in-out infinite}
+.eye{transform-box:fill-box;transform-origin:center;animation:blink 5.5s infinite}
+.eye.b{animation-delay:.06s}
+#mouth{transform-box:fill-box;transform-origin:center;transform:scaleY(.1);opacity:0;transition:transform .09s}
+body[data-mode=speaking] #mouth{opacity:1}
+body[data-mode=speaking] #smile{opacity:0}
+body[data-mode=listening] .ring{animation:ring 1.6s ease-out infinite}
+body[data-mode=listening] .portrait svg{animation:none;transform:rotate(-2deg)}
+.dots{display:flex;gap:6px;height:10px;visibility:hidden}
+body[data-mode=thinking] .dots{visibility:visible}
+.dots i{width:8px;height:8px;border-radius:50%;background:var(--ring);animation:dot 1s infinite}
+.dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
+.status{margin:0;color:var(--muted);font-size:.9rem}
+.reply{margin:0;font-size:1.05rem;line-height:1.4;color:#e4eafb;max-height:6.2em;overflow:auto;padding:0 6px}
+.pill{border:1px solid var(--ring);background:transparent;color:var(--ring);padding:8px 14px;border-radius:999px;font-size:.95rem;cursor:pointer}
+.bottom{display:flex;flex-direction:column;align-items:center;gap:10px}
+.note{margin:0;min-height:1.2em;font-size:.85rem;color:#ffd58a;text-align:center}
+#typed{display:flex;gap:8px;width:100%}
+#typed input{flex:1;padding:12px 14px;border-radius:12px;border:1px solid #4a5f92;background:#0f1a36;color:var(--ink);font-size:1rem}
+#typed button{padding:0 16px;border-radius:12px;border:0;background:#3a5a96;color:#fff;font-size:1rem}
+.talk{width:min(78vw,300px);height:76px;border-radius:38px;border:0;color:#fff;background:var(--green);
+  font:800 1.55rem system-ui,sans-serif;letter-spacing:.14em;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.35);transition:background .15s,transform .1s}
+.talk:active{transform:scale(.97)}
+.talk.live{background:var(--red);animation:pulse 1.4s ease-in-out infinite}
+.talk:focus-visible,.pill:focus-visible,#typed input:focus-visible{outline:3px solid #fff;outline-offset:3px}
+@keyframes breathe{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@keyframes blink{0%,94%,100%{transform:scaleY(1)}96.5%{transform:scaleY(.08)}}
+@keyframes ring{0%{transform:scale(.98);opacity:.85}100%{transform:scale(1.14);opacity:0}}
+@keyframes dot{0%,100%{opacity:.25;transform:translateY(0)}50%{opacity:1;transform:translateY(-4px)}}
+@keyframes pulse{0%,100%{box-shadow:0 8px 24px rgba(0,0,0,.35),0 0 0 0 rgba(201,35,26,.55)}50%{box-shadow:0 8px 24px rgba(0,0,0,.35),0 0 0 14px rgba(201,35,26,0)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body data-mode="idle">
+<main class="app">
+  <section class="top" aria-live="polite">
+    <small>Nathalie</small>
+    <div id="said" class="empty">Vos paroles apparaîtront ici.</div>
+    <div id="alert" class="alert" role="alert" hidden></div>
+  </section>
+
+  <section class="stage">
+    <div class="avatar">
+      <div class="ring"></div>
+      <div class="portrait">
+        <svg viewBox="0 0 300 300" role="img" aria-label="Sarra, assistante">
+          <path d="M82 125C70 60 120 36 150 36C190 36 232 62 218 135C226 190 232 225 238 262L62 262C68 225 74 190 82 125Z" fill="#2b1a14"/>
+          <path d="M30 300C36 246 92 226 150 226C208 226 264 246 270 300Z" fill="#e8735a"/>
+          <path d="M130 176L130 222Q150 238 170 222L170 176Z" fill="#dfae88"/>
+          <path d="M126 226Q150 250 174 226Q150 238 126 226Z" fill="#efc4a0"/>
+          <ellipse cx="150" cy="122" rx="56" ry="66" fill="#efc4a0"/>
+          <circle cx="94" cy="142" r="3.6" fill="#f2c94c"/><circle cx="206" cy="142" r="3.6" fill="#f2c94c"/>
+          <path d="M92 128C86 70 126 50 152 52C194 54 214 88 208 128C198 98 176 82 146 82C116 84 98 102 92 128Z" fill="#2b1a14"/>
+          <g class="eye"><ellipse cx="128" cy="128" rx="9" ry="7" fill="#fff"/><circle cx="128" cy="128" r="5" fill="#2a1c16"/><circle cx="126.5" cy="126.5" r="1.6" fill="#fff"/></g>
+          <g class="eye b"><ellipse cx="172" cy="128" rx="9" ry="7" fill="#fff"/><circle cx="172" cy="128" r="5" fill="#2a1c16"/><circle cx="170.5" cy="126.5" r="1.6" fill="#fff"/></g>
+          <path d="M118 112Q128 106 138 111M162 111Q172 106 182 112" stroke="#2b1a14" stroke-width="3" stroke-linecap="round" fill="none"/>
+          <path d="M150 132Q146 150 151 152" stroke="#d29b78" stroke-width="2" stroke-linecap="round" fill="none"/>
+          <circle cx="120" cy="153" r="9" fill="#f08a7a" opacity=".3"/><circle cx="180" cy="153" r="9" fill="#f08a7a" opacity=".3"/>
+          <path id="smile" d="M135 170Q150 182 165 170" stroke="#b5473f" stroke-width="4" stroke-linecap="round" fill="none"/>
+          <ellipse id="mouth" cx="150" cy="173" rx="12" ry="8" fill="#7a2b2b"/>
+        </svg>
+      </div>
+    </div>
+    <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+    <p id="status" class="status">Appuyez sur PARLER pour parler à Sarra</p>
+    <p id="reply" class="reply" aria-live="polite"></p>
+    <button id="tapHear" class="pill" hidden>Touchez ici pour entendre Sarra</button>
+  </section>
+
+  <section class="bottom">
+    <p id="note" class="note" role="status"></p>
+    <form id="typed" hidden autocomplete="off">
+      <input id="typedIn" type="text" placeholder="Écrire à Sarra…" aria-label="Écrire à Sarra">
+      <button type="submit">Envoyer</button>
+    </form>
+    <button id="talk" class="talk" type="button" aria-label="Parler à Sarra">PARLER</button>
+  </section>
+</main>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const el = {said:$('#said'),reply:$('#reply'),status:$('#status'),btn:$('#talk'),note:$('#note'),typed:$('#typed'),typedIn:$('#typedIn'),
+  alert:$('#alert'),tap:$('#tapHear'),mouth:$('#mouth')};
+
+let mode = 'idle', dict = null, sample = null, caps = 'loading';
+let finalText = '', partial = '', history = [], abortCtl = null, speakToken = 0, mouthTimer = null;
+const alerts = [];
+const STATUS = {idle:'Appuyez sur PARLER pour parler à Sarra',listening:'Sarra vous écoute…',thinking:'Sarra réfléchit…',speaking:'Sarra parle…'};
+
+/* ---------- données locales (agenda, tâches) ---------- */
+let store = {events:[],tasks:[],next:1};
+try { const s = localStorage.getItem('sarra.v1'); if (s) store = Object.assign(store, JSON.parse(s)); } catch (e) {}
+const save = () => { try { localStorage.setItem('sarra.v1', JSON.stringify(store)); } catch (e) {} };
+const pad = n => String(n).padStart(2,'0');
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const nowText = () => new Date().toLocaleString('fr-CA',{weekday:'long',day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
+const cmp = (x,y) => ((x.date+(x.heure||''))<(y.date+(y.heure||''))?-1:1);
+const isDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s||'');
+const isTime = s => /^\d{2}:\d{2}$/.test(s||'');
+
+const tools = [
+  {name:'agenda_lire',description:"Lit les événements de l'agenda entre deux dates incluses (AAAA-MM-JJ). Sans dates : aujourd'hui seulement.",
+   inputSchema:{type:'object',properties:{du:{type:'string'},au:{type:'string'}}},
+   execute:async ({du,au}={}) => {const a=du||ymd(new Date()),b=au||a;return store.events.filter(e=>e.date>=a&&e.date<=b).sort(cmp);}},
+  {name:'agenda_ajouter',description:"Ajoute un événement à l'agenda. date au format AAAA-MM-JJ, heure au format HH:MM (24 h).",
+   inputSchema:{type:'object',properties:{titre:{type:'string'},date:{type:'string'},heure:{type:'string'},duree_min:{type:'number'},lieu:{type:'string'}},required:['titre','date']},
+   execute:async i => {if(!i.titre||!isDate(i.date))throw new Error('titre ou date invalide');if(i.heure&&!isTime(i.heure))throw new Error('heure invalide');
+     const e={id:store.next++,titre:String(i.titre).slice(0,120),date:i.date,heure:i.heure||'',duree_min:i.duree_min||0,lieu:i.lieu||''};store.events.push(e);save();return {ok:true,id:e.id};}},
+  {name:'agenda_supprimer',description:"Supprime un événement de l'agenda par son identifiant.",
+   inputSchema:{type:'object',properties:{id:{type:'number'}},required:['id']},
+   execute:async ({id}) => {const n=store.events.length;store.events=store.events.filter(e=>e.id!==id);save();return {ok:store.events.length<n};}},
+  {name:'taches_lire',description:'Liste les tâches non terminées.',inputSchema:{type:'object',properties:{}},
+   execute:async () => store.tasks.filter(t=>!t.fait)},
+  {name:'tache_ajouter',description:'Ajoute une tâche. echeance optionnelle au format AAAA-MM-JJ.',
+   inputSchema:{type:'object',properties:{titre:{type:'string'},echeance:{type:'string'}},required:['titre']},
+   execute:async i => {if(!i.titre)throw new Error('titre manquant');if(i.echeance&&!isDate(i.echeance))throw new Error('échéance invalide');
+     const t={id:store.next++,titre:String(i.titre).slice(0,120),echeance:i.echeance||'',fait:false};store.tasks.push(t);save();return {ok:true,id:t.id};}},
+  {name:'tache_terminer',description:'Marque une tâche comme terminée par son identifiant.',
+   inputSchema:{type:'object',properties:{id:{type:'number'}},required:['id']},
+   execute:async ({id}) => {const t=store.tasks.find(x=>x.id===id);if(!t)return {ok:false};t.fait=true;save();return {ok:true};}},
+  {name:'minuteur',description:"Lance un minuteur (1 à 720 minutes). Sarra préviendra à voix haute à la fin, tant que cette page reste ouverte.",
+   inputSchema:{type:'object',properties:{minutes:{type:'number'},libelle:{type:'string'}},required:['minutes']},
+   execute:async ({minutes,libelle}) => {const m=Number(minutes);if(!(m>0&&m<=720))throw new Error('durée invalide');
+     setTimeout(()=>notify(`Nathalie, votre minuteur${libelle?' « '+libelle+' »':''} de ${m} minute${m>1?'s':''} est terminé.`),m*60000);
+     return {ok:true,fin:new Date(Date.now()+m*60000).toLocaleTimeString('fr-CA',{hour:'2-digit',minute:'2-digit'})};}},
+  {name:'heure_actuelle',description:"Donne la date et l'heure actuelles.",inputSchema:{type:'object',properties:{}},
+   execute:async () => ({maintenant:nowText(),date:ymd(new Date())})}
+];
+
+/* ---------- affichage ---------- */
+function setMode(m){
+  mode = m; document.body.dataset.mode = m; el.status.textContent = STATUS[m];
+  const live = m === 'listening';
+  el.btn.textContent = live ? 'FIN' : 'PARLER';
+  el.btn.classList.toggle('live', live);
+  el.btn.setAttribute('aria-label', live ? 'Terminer et envoyer à Sarra' : 'Parler à Sarra');
+  if (m === 'idle') flushAlerts();
+}
+function setSaid(t){ el.said.textContent = t || 'Vos paroles apparaîtront ici.'; el.said.classList.toggle('empty', !t); el.said.scrollTop = el.said.scrollHeight; }
+function note(t){ el.note.textContent = t || ''; }
+function showTyped(){ el.typed.hidden = false; }
+
+/* ---------- voix de Sarra ---------- */
+function pickVoice(){
+  if (!('speechSynthesis' in window)) return null;
+  const vs = speechSynthesis.getVoices();
+  return vs.find(v=>/^fr[-_]CA/i.test(v.lang)) || vs.find(v=>/^fr/i.test(v.lang)) || null;
+}
+if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = () => {};
+const sentences = t => (t.match(/[^.!?…]+[.!?…]*\s*/g) || [t]).map(s=>s.trim()).filter(Boolean);
+function startMouth(){
+  if (mouthTimer) return;
+  mouthTimer = setInterval(()=>{ el.mouth.style.transform = `scaleY(${(.2+Math.random()*.8).toFixed(2)})`; }, 110);
+}
+function stopMouth(){ clearInterval(mouthTimer); mouthTimer = null; el.mouth.style.transform = 'scaleY(.1)'; }
+function cancelSpeech(){ speakToken++; try{ speechSynthesis.cancel(); }catch(e){} stopMouth(); }
+function speak(text){
+  return new Promise(res => {
+    if (!('speechSynthesis' in window)) { res('unsupported'); return; }
+    cancelSpeech();
+    const my = ++speakToken, parts = sentences(text); let i = 0;
+    const next = () => {
+      if (my !== speakToken) { res('cancelled'); return; }
+      if (i >= parts.length) { stopMouth(); res('done'); return; }
+      const u = new SpeechSynthesisUtterance(parts[i++]), v = pickVoice();
+      u.lang = v ? v.lang : 'fr-CA'; if (v) u.voice = v;
+      u.onstart = startMouth; u.onend = next;
+      u.onerror = ev => { if (ev.error === 'not-allowed') { stopMouth(); res('blocked'); return; } next(); };
+      speechSynthesis.speak(u);
+    };
+    next();
+  });
+}
+async function sarraSay(text, rec = true){
+  el.reply.textContent = text;
+  if (rec) history.push({role:'assistant',content:text});
+  setMode('speaking');
+  const r = await speak(text);
+  if (mode === 'speaking') setMode('idle');
+  return r;
+}
+
+/* ---------- alertes (minuteurs) ---------- */
+function notify(text){
+  el.alert.textContent = text; el.alert.hidden = false;
+  alerts.push(text); if (mode === 'idle') flushAlerts();
+}
+function flushAlerts(){ if (alerts.length && mode === 'idle') sarraSay(alerts.shift(), false); }
+el.alert.addEventListener('click', () => { el.alert.hidden = true; });
+
+/* ---------- cerveau de Sarra ---------- */
+function buildPrompt(){
+  const conv = history.slice(-12).map(m => (m.role === 'user' ? 'Nathalie : ' : 'Sarra : ') + m.content).join('\n');
+  return `Tu es Sarra, l'assistante vocale personnelle de Nathalie. Tu l'aides à organiser ses journées : agenda, tâches, minuteurs, conseils d'organisation. Tu parles français, tu vouvoies Nathalie, avec chaleur et efficacité.
+Règles :
+- Tes réponses sont lues à voix haute : 1 à 3 phrases courtes, sans markdown, sans liste, sans émoji, sans symboles. Écris les heures comme "14 h 30".
+- Utilise les outils pour lire ou modifier l'agenda et les tâches au lieu de supposer, puis confirme brièvement ce que tu as fait.
+- Si une demande est ambiguë, pose une seule question courte.
+- Dans cette version, tu ne peux pas passer d'appels, envoyer de SMS ou de courriels, ni régler les alarmes du téléphone. Dis-le honnêtement et propose une alternative (un événement dans l'agenda ou un minuteur). Ne prétends jamais avoir fait ce que tu n'as pas fait.
+Maintenant : ${nowText()} (date ${ymd(new Date())}).
+Conversation :
+${conv}
+Réponds uniquement par la prochaine réplique de Sarra, sans préfixe.`;
+}
+const clean = t => String(t||'').replace(/^\s*Sarra\s*:\s*/i,'').replace(/[*#_`>]/g,'').replace(/\s+/g,' ').trim();
+function errMsg(e){
+  const c = e && e.code;
+  if (c === 'not_granted') return "Je n'ai pas encore l'autorisation de réfléchir ici. Acceptez la demande d'accès, puis réessayez.";
+  if (c === 'rate_limited') return "Je suis un peu débordée, réessayez dans un instant.";
+  return "Désolée Nathalie, je n'ai pas pu traiter votre demande. Pouvez-vous répéter ?";
+}
+async function ask(text){
+  setSaid(text); history.push({role:'user',content:text});
+  setMode('thinking');
+  if (!sample) return sarraSay("Je ne peux pas réfléchir dans ce contexte pour le moment.", false);
+  const ctl = abortCtl = new AbortController();
+  let reply;
+  try {
+    const r = await sample(buildPrompt(), {tools, cache:false, modelTier:'quick', signal:ctl.signal});
+    reply = clean(r && r.text) || "Je n'ai pas bien compris, pouvez-vous reformuler ?";
+  } catch (e) {
+    if (ctl.signal.aborted) return;
+    reply = errMsg(e);
+  }
+  if (ctl.signal.aborted) return;
+  abortCtl = null;
+  return sarraSay(reply, !reply.startsWith('Désolée'));
+}
+
+/* ---------- bouton PARLER / FIN ---------- */
+function startFailed(e){
+  if (mode === 'listening') setMode('idle');
+  const c = e && (e.code || e.message);
+  if (c === 'not_granted') { dict = null; showTyped(); note("Le micro est refusé : vous pouvez écrire à Sarra."); }
+  else if (c !== 'dismissed') note("Le micro ne répond pas. Réessayez.");
+}
+function onTalk(){
+  if (mode === 'listening') return finish();
+  if (caps === 'loading') { note('Un instant, le micro se prépare…'); return; }
+  if (!dict) { showTyped(); el.typedIn.focus(); note("La dictée vocale n'est pas disponible ici (essayez Chrome). Vous pouvez écrire à Sarra."); return; }
+  cancelSpeech(); if (abortCtl) { abortCtl.abort(); abortCtl = null; }
+  el.tap.hidden = true; note('');
+  finalText = ''; partial = ''; setSaid('');
+  setMode('listening');
+  try { const p = dict.start(); if (p && p.catch) p.catch(startFailed); } catch (e) { startFailed(e); }
+}
+async function finish(){
+  if (mode !== 'listening') return;
+  setMode('thinking');
+  try { await dict.stop(); } catch (e) {}
+  const said = (finalText + ' ' + partial).replace(/\s+/g,' ').trim();
+  partial = '';
+  if (!said) {
+    history = []; setSaid('');
+    return sarraSay("D'accord Nathalie, à bientôt. Appuyez sur PARLER quand vous aurez besoin de moi.", false);
+  }
+  return ask(said);
+}
+el.btn.addEventListener('click', onTalk);
+el.typed.addEventListener('submit', ev => {
+  ev.preventDefault();
+  const t = el.typedIn.value.trim(); if (!t || mode === 'listening') return;
+  el.typedIn.value = ''; cancelSpeech(); if (abortCtl) abortCtl.abort();
+  ask(t);
+});
+
+/* ---------- accueil ---------- */
+const hello = () => `${new Date().getHours() >= 18 ? 'Bonsoir' : 'Bonjour'} Nathalie, je suis Sarra. Comment puis-je vous aider dans l'organisation de votre journée ?`;
+async function greet(){
+  const r = await sarraSay(hello());
+  if (r === 'blocked') el.tap.hidden = false;
+}
+el.tap.addEventListener('click', () => { el.tap.hidden = true; sarraSay(el.reply.textContent, false); });
+
+/* ---------- capacités (dictée, IA) ---------- */
+(async () => {
+  try {
+    if (window.claude && claude.use) { dict = await claude.use('dictation'); sample = await claude.use('sample'); }
+  } catch (e) {}
+  caps = 'ready';
+  if (dict) {
+    dict.onPartial(({text}) => { partial = text || ''; if (mode === 'listening') setSaid((finalText + ' ' + partial).trim()); });
+    dict.onFinal(({text}) => { finalText = (finalText + ' ' + (text || '')).trim(); partial = ''; if (mode === 'listening') setSaid(finalText); });
+    dict.onState(({state}) => { if (state === 'idle' && mode === 'listening') finish(); });
+  } else {
+    showTyped(); note("La dictée vocale n'est pas disponible ici (essayez Chrome) : vous pouvez écrire à Sarra.");
+  }
+  if (sample) sample('Réponds seulement : OK', {modelTier:'quick'}).catch(e => { if (e && e.code === 'not_granted') note("Autorisez l'accès demandé pour que Sarra puisse répondre."); });
+})();
+
+setMode('idle');
+greet();
+})();
+</script>
+</body>
+</html>

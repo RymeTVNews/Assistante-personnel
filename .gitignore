@@ -1,0 +1,6 @@
+.dart_tool/
+build/
+*.apk
+local.properties
+.idea/
+.DS_Store

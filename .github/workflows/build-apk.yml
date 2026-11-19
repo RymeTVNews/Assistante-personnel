@@ -1,0 +1,61 @@
+name: Compiler l'application Sarra (APK)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'sarra_app/**'
+      - '.github/workflows/build-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Générer le projet Flutter complet
+        run: |
+          GEN="$RUNNER_TEMP/gen"
+          flutter create --platforms=android --org com.sarra --project-name sarra_assistante "$GEN"
+          rm -rf "$GEN/lib" "$GEN/test"
+          cp -r sarra_app/lib "$GEN/lib"
+          cp sarra_app/pubspec.yaml "$GEN/pubspec.yaml"
+          cp sarra_app/android_overrides/AndroidManifest.xml "$GEN/android/app/src/main/AndroidManifest.xml"
+          mkdir -p "$GEN/android/app/src/main/kotlin/com/sarra/sarra_assistante"
+          cp sarra_app/android_overrides/MainActivity.kt "$GEN/android/app/src/main/kotlin/com/sarra/sarra_assistante/MainActivity.kt"
+          echo "GEN=$GEN" >> "$GITHUB_ENV"
+
+      - name: Compiler l'APK
+        working-directory: ${{ env.GEN }}
+        run: |
+          flutter pub get
+          flutter build apk --release
+
+      - name: Préparer le fichier
+        run: cp "$GEN/build/app/outputs/flutter-apk/app-release.apk" Sarra.apk
+
+      - name: Publier une version téléchargeable
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Sarra — version ${{ github.run_number }}
+          make_latest: true
+          files: Sarra.apk
+          body: |
+            Application Android de Sarra, l'assistante vocale de Nathalie.
+
+            Installation : télécharger **Sarra.apk** sur le téléphone, l'ouvrir et autoriser l'installation depuis cette source si Android le demande.
