@@ -44,4 +44,9 @@ class AlarmBridge {
   static Future<bool> fullScreenOk() async => (await _ch.invokeMethod<bool>('fullScreenOk')) ?? true;
 
   static Future<void> openFullScreenSettings() => _ch.invokeMethod('openFullScreenSettings');
+
+  // Écoute du mot d'éveil « Dis Sarra » en arrière-plan
+  static Future<void> wakeStart() => _ch.invokeMethod('wakeStart');
+  static Future<void> wakeStop() => _ch.invokeMethod('wakeStop');
+  static Future<bool> wakeEnabled() async => (await _ch.invokeMethod<bool>('wakeEnabled')) ?? false;
 }

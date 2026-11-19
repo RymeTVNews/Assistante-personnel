@@ -132,6 +132,15 @@ class _HomePageState extends State<HomePage> {
               const Text('NATHALIE', style: TextStyle(color: _muted, fontSize: 12, letterSpacing: 1.4)),
               const Spacer(),
               IconButton(
+                tooltip: c.wakeOn ? "Écoute « Dis Sarra » active (toucher pour arrêter)" : "Activer l'écoute « Dis Sarra »",
+                onPressed: c.toggleWake,
+                icon: Icon(
+                  c.wakeOn ? Icons.hearing : Icons.hearing_disabled,
+                  color: c.wakeOn ? const Color(0xFF5BD68A) : _muted,
+                  size: 22,
+                ),
+              ),
+              IconButton(
                 tooltip: "Clé d'accès",
                 onPressed: _askKey,
                 icon: const Icon(Icons.settings, color: _muted, size: 22),

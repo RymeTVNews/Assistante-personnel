@@ -71,6 +71,12 @@ class PhoneTools {
           },
         },
         ['quand', 'message']),
+    _def(
+        'ecoute_continue',
+        "Active ou arrête l'écoute permanente du mot d'éveil « Dis Sarra » en arrière-plan. "
+        "Quand elle est active, une notification reste affichée et Sarra s'ouvre dès que Nathalie dit « Dis Sarra », même téléphone verrouillé.",
+        {'actif': {'type': 'boolean'}},
+        ['actif']),
     _def('programme_lister', 'Liste les réveils et rappels programmés.', {}),
     _def('programme_annuler', 'Annule un réveil ou un rappel programmé, par son identifiant.', {'id': _n}, ['id']),
     _def('minuteur', "Lance un minuteur du téléphone (durée en secondes).", {'secondes': _n, 'libelle': _s}, ['secondes']),
@@ -99,6 +105,8 @@ class PhoneTools {
         return _smsPreparer(a);
       case 'programmer':
         return _programmer(a);
+      case 'ecoute_continue':
+        return _ecoute(a['actif'] == true);
       case 'programme_lister':
         return (await AlarmBridge.list())
             .map((e) => {
@@ -271,6 +279,28 @@ class PhoneTools {
   }
 
   // ---------- alarmes et minuteurs ----------
+
+  /// Écoute du mot d'éveil « Dis Sarra » : service Android au premier plan (notification visible).
+  Future<dynamic> _ecoute(bool actif) async {
+    if (!actif) {
+      await AlarmBridge.wakeStop();
+      return {'ok': true, 'actif': false};
+    }
+    await need(Permission.microphone, 'au microphone');
+    await need(Permission.notification, 'aux notifications');
+    await AlarmBridge.wakeStart();
+    final notes = <String>[];
+    if (!await Permission.systemAlertWindow.isGranted) {
+      await Permission.systemAlertWindow.request();
+      if (!await Permission.systemAlertWindow.isGranted) {
+        notes.add("Sans l'autorisation « Afficher par-dessus les autres applications », Sarra ne peut s'ouvrir que par une notification.");
+      }
+    }
+    if (!await Permission.ignoreBatteryOptimizations.isGranted) {
+      await Permission.ignoreBatteryOptimizations.request();
+    }
+    return {'ok': true, 'actif': true, if (notes.isNotEmpty) 'avertissements': notes};
+  }
 
   /// Réveil ou rappel : à l'heure dite, Sarra s'ouvre même téléphone verrouillé.
   Future<dynamic> _programmer(Map<String, dynamic> a) async {

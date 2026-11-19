@@ -36,6 +36,9 @@ class SarraController extends ChangeNotifier {
   int _token = 0;
   bool _waking = false;
   int _wakeGen = 0;
+  bool wakeOn = false;
+  bool _handsFree = false;
+  Timer? _silenceTimer;
 
   // ---------- démarrage ----------
 
@@ -47,6 +50,7 @@ class SarraController extends ChangeNotifier {
     // Sarra a été ouverte par un réveil ou un rappel (même écran verrouillé) : elle parle tout de suite.
     AlarmBridge.init();
     AlarmBridge.onWake = (w) => _handleWake(w);
+    await _syncWake();
     final wake = await AlarmBridge.takeWake();
     if (wake != null) {
       await _handleWake(wake);
@@ -107,6 +111,15 @@ class SarraController extends ChangeNotifier {
 
   /// À l'heure programmée : Sarra parle, exécute l'action prévue, et répète le réveil jusqu'à ce que Nathalie réponde.
   Future<void> _handleWake(Map<String, dynamic> w) async {
+    // « Dis Sarra » : elle répond, puis écoute Nathalie sans qu'elle ait à toucher l'écran.
+    if ('${w['kind']}' == 'ecoute') {
+      _wakeGen++;
+      _waking = false;
+      _handsFree = true;
+      await _say('Oui Nathalie, je vous écoute.');
+      await onTalk();
+      return;
+    }
     final gen = ++_wakeGen;
     _waking = true;
     final kind = '${w['kind']}';
@@ -148,6 +161,29 @@ class SarraController extends ChangeNotifier {
         await AlarmBridge.stopSound();
       } catch (_) {}
     }
+  }
+
+  // ---------- écoute « Dis Sarra » ----------
+
+  Future<void> _syncWake() async {
+    try {
+      wakeOn = await AlarmBridge.wakeEnabled();
+      if (wakeOn) await AlarmBridge.wakeStart();
+    } catch (_) {}
+    notifyListeners();
+  }
+
+  Future<void> toggleWake() async {
+    final target = !wakeOn;
+    try {
+      final r = await _tools.run('ecoute_continue', {'actif': target}) as Map;
+      wakeOn = target;
+      final warn = r['avertissements'];
+      note = warn is List && warn.isNotEmpty ? '${warn.first}' : '';
+    } catch (e) {
+      note = e.toString().replaceFirst('Exception: ', '');
+    }
+    notifyListeners();
   }
 
   // ---------- clé d'accès ----------
@@ -206,6 +242,7 @@ class SarraController extends ChangeNotifier {
     _live = '';
     mode = SarraMode.listening;
     notifyListeners();
+    if (_handsFree) _armSilence(const Duration(seconds: 12));
     await _listen();
   }
 
@@ -267,6 +304,15 @@ class SarraController extends ChangeNotifier {
     }
     said = '$_accum $_live'.trim();
     notifyListeners();
+    if (_handsFree) _armSilence(const Duration(milliseconds: 2500));
+  }
+
+  /// Mains libres (après « Dis Sarra ») : la demande se termine toute seule après un silence.
+  void _armSilence(Duration d) {
+    _silenceTimer?.cancel();
+    _silenceTimer = Timer(d, () {
+      if (mode == SarraMode.listening && _handsFree) _finish();
+    });
   }
 
   void _restartListening() {
@@ -299,6 +345,8 @@ class SarraController extends ChangeNotifier {
   Future<void> _finish() async {
     if (mode != SarraMode.listening) return;
     final gen = ++_token;
+    _silenceTimer?.cancel();
+    _handsFree = false;
     _finishing = true;
     mode = SarraMode.thinking;
     notifyListeners();

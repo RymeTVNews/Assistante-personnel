@@ -38,7 +38,18 @@ Nathalie peut dire par exemple « réveille-moi demain à 6 h 30 » ou « rappel
 
 Les réveils programmés sont conservés et réarmés après un redémarrage du téléphone. Accès demandés par Sarra pour cela : notifications et ouverture sur écran verrouillé (Android 14 et plus : une page de réglages s'ouvre pour l'activer).
 
-Limite : Sarra n'écoute pas en permanence en arrière-plan (pas de mot d'éveil « Dis Sarra ») ; elle s'ouvre quand une alarme ou un rappel programmé arrive, ou quand Nathalie ouvre l'application.
+## « Dis Sarra » (écoute en arrière-plan, facultative)
+
+L'icône d'oreille en haut de l'écran (ou la phrase « active l'écoute Dis Sarra ») active un service qui écoute le mot d'éveil. Quand Nathalie dit « Dis Sarra », Sarra s'ouvre, même téléphone verrouillé, répond « Oui Nathalie, je vous écoute » puis écoute la demande ; la demande se termine toute seule après un silence.
+
+- Une **notification reste affichée** tant que l'écoute est active (obligation d'Android), avec un bouton **Arrêter**.
+- Accès demandés : micro, notifications, « Afficher par-dessus les autres applications » (sans lui, Sarra ne s'ouvre que par une notification) et exclusion de l'économie de batterie.
+- **Vie privée :** quand Android le permet (version 12 et plus, avec le pack de langue français hors ligne), la reconnaissance se fait sur le téléphone. Sinon, c'est le service de reconnaissance vocale de Google qui écoute : l'audio peut alors être envoyé à Google. L'écoute en continu consomme aussi de la batterie.
+- Après un redémarrage du téléphone, il faut ouvrir Sarra une fois : Android interdit de relancer un micro en arrière-plan depuis le démarrage.
+- Certaines marques (Samsung, Xiaomi, Huawei…) arrêtent les services en arrière-plan : si l'écoute s'interrompt, désactiver l'économie de batterie pour Sarra.
+- Limite actuelle : l'écoute est suspendue pendant que Sarra est ouverte à l'écran ; elle reprend dès que Nathalie quitte l'application ou verrouille le téléphone.
+
+Sans « Dis Sarra », Sarra s'ouvre quand un réveil ou un rappel programmé arrive, ou quand Nathalie ouvre l'application.
 
 ## Clé d'accès de l'intelligence
 

@@ -28,6 +28,18 @@ class MainActivity : FlutterActivity() {
         readWake(intent)
     }
 
+    override fun onStart() {
+        super.onStart()
+        WakeWordService.activityVisible = true
+        WakeWordService.instance?.pause() // le micro est laissé à l'application
+    }
+
+    override fun onStop() {
+        WakeWordService.activityVisible = false
+        WakeWordService.instance?.resume() // l'écoute « Dis Sarra » reprend
+        super.onStop()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -132,6 +144,15 @@ class MainActivity : FlutterActivity() {
                         }
                         result.success(true)
                     }
+                    "wakeStart" -> {
+                        WakeWordService.start(this)
+                        result.success(true)
+                    }
+                    "wakeStop" -> {
+                        WakeWordService.stop(this)
+                        result.success(true)
+                    }
+                    "wakeEnabled" -> result.success(WakeWordService.isEnabled(this))
                     else -> result.notImplemented()
                 }
             } catch (e: Exception) {
