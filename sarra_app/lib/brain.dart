@@ -48,6 +48,18 @@ Règles :
 Maintenant : $date (ISO ${n.toIso8601String()}, fuseau ${n.timeZoneName}).''';
   }
 
+  /// Les réflexions des demandes précédentes sont liées à un ancien texte de réglage : on les retire.
+  void _dropThinking() {
+    for (final m in _msgs) {
+      if (m['role'] == 'assistant' && m['content'] is List) {
+        m['content'] = (m['content'] as List)
+            .where((b) => b is Map && b['type'] != 'thinking' && b['type'] != 'redacted_thinking')
+            .toList();
+      }
+    }
+    _msgs.removeWhere((m) => m['role'] == 'assistant' && m['content'] is List && (m['content'] as List).isEmpty);
+  }
+
   void _trim() {
     while (_msgs.length > 24 ||
         (_msgs.isNotEmpty && !(_msgs.first['role'] == 'user' && _msgs.first['content'] is String))) {
@@ -63,8 +75,13 @@ Maintenant : $date (ISO ${n.toIso8601String()}, fuseau ${n.timeZoneName}).''';
           "Il me manque ma clé d'accès pour réfléchir. Touchez l'engrenage en haut de l'écran pour la saisir.",
           needsKey: true);
     }
+    _dropThinking();
     _msgs.add({'role': 'user', 'content': text});
     _trim();
+
+    // Le texte de réglage doit rester identique pendant toute la demande : le service lie ses
+    // « réflexions » à ce texte et refuse de les relire si l'heure qu'il contient a changé.
+    final system = _system();
 
     for (var i = 0; i < 8; i++) {
       final res = await http
@@ -78,7 +95,7 @@ Maintenant : $date (ISO ${n.toIso8601String()}, fuseau ${n.timeZoneName}).''';
             body: jsonEncode({
               'model': model,
               'max_tokens': 500,
-              'system': _system(),
+              'system': system,
               'tools': tools.definitions,
               'messages': _msgs,
             }),
